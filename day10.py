@@ -49,11 +49,11 @@ for step in indicators:
     #     light1 == light2 == light3 == ...
     #
     # Where each light is XOR union of the button wirings linked up to it...
-    for i, on in enumerate(step.target):
+    for i, amount in enumerate(step.target):
         # Get the buttons that toggle each light:
         connected_buttons = [buttonwirings[j] for j, wiring in enumerate(step.buttons) if wiring[i]]
         chain = functools.reduce(operator.xor, connected_buttons, z3.BoolVal(False))
-        solver.add(chain == on)
+        solver.add(chain == amount)
     # The number of presses is the number of activated button wirings.
     total_presses = z3.Sum([z3.If(b, 1, 0) for b in buttonwirings])
     # And we want to minimize that.
@@ -63,6 +63,31 @@ for step in indicators:
     assert solver.check() == z3.sat
     # Run the solver.
     presses = solver.model().eval(total_presses).as_long()
-    print(f"solving for {presses=} {step.raw=}")
+    # print(f"solving for {presses=} {step.raw=}")
     total += presses
-print(total)
+
+print("Part 1:", total)
+
+total = 0
+for step in indicators:
+    solver = z3.Optimize()
+    # Unlike last time, a button is pressed zero or more times...
+    buttonwirings = [z3.Int(f"button_{i}") for i in range(len(step.buttons))]
+    for b in buttonwirings:
+        solver.add(b >= 0)
+    # Instead of a boolean expression, we have:
+    #
+    #     joltage = light1 + light2 + light3 + ...
+    #
+    # Where each light is sum of the button wirings linked up to it...
+    for i, amount in enumerate(step.joltage):
+        # Get the buttons that toggle each light:
+        connected_buttons = [buttonwirings[j] for j, wiring in enumerate(step.buttons) if wiring[i]]
+        solver.add(z3.Sum(connected_buttons) == amount)
+    total_presses = z3.Sum(buttonwirings)
+    solver.minimize(total_presses)
+    assert solver.check() == z3.sat
+    presses = solver.model().eval(total_presses).as_long()
+    # print(f"solving for {presses=} {step.raw=}")
+    total += presses
+print("Part 2:", total)
